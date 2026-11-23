@@ -3,17 +3,156 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>Sunset Bay — an original open-world crime game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
+  :root {
+    --ink: #1e1410;
+    --panel: rgba(36, 24, 20, 0.78);
+    --panel-solid: #2a1c17;
+    --coral: #ff7a59;
+    --gold: #ffc861;
+    --teal: #2ec4b6;
+    --sand: #fff4e4;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: var(--sand); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #game-root { position: fixed; inset: 0; }
+  #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  [hidden] { display: none !important; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; text-shadow: 0 2px 0 rgba(0,0,0,0.55), 0 0 12px rgba(0,0,0,0.35); }
+  #hud-left { position: absolute; left: 20px; top: 16px; width: 400px; display: flex; flex-direction: column; gap: 8px; }
+  #hud-objective { padding: 13px 16px 11px; background: var(--panel); border-left: 6px solid var(--gold); border-radius: 4px 14px 14px 4px; }
+  #obj-label { font: 900 italic 15px system-ui, sans-serif; letter-spacing: 0.12em; color: var(--gold); text-transform: uppercase; }
+  #obj-stage { font: 900 20px system-ui, sans-serif; }
+  #obj-text { font-size: 15px; margin-top: 2px; }
+  #obj-hint { font-size: 12px; opacity: 0.75; margin-top: 4px; }
+  #hud-status { position: absolute; right: 20px; top: 16px; text-align: right; background: var(--panel); padding: 10px 16px; border-radius: 14px; }
+  #hud-clock { font: 900 26px system-ui, sans-serif; }
+  #hud-money { font: 900 24px system-ui, sans-serif; color: var(--gold); }
+  #hud-wanted { font-size: 22px; letter-spacing: 2px; }
+  #hud-rep { font-size: 13px; opacity: 0.85; }
+  #hud-ammo { position: absolute; left: 20px; bottom: 170px; font: 900 18px system-ui, sans-serif; }
+  #hud-radar { position: absolute; right: 20px; bottom: 16px; width: 250px; }
+  #hud-location { font-size: 13px; margin-bottom: 4px; text-align: right; }
+  #minimap { width: 250px; height: 250px; border-radius: 50%; border: 3px solid rgba(255,244,228,0.85); background: #22303a; display: block; }
+  #hud-vitals { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .vit { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .vit div { flex: 1; height: 10px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden; }
+  .vit i { display: block; height: 100%; }
+  #vit-hp { background: #ff5a4a; width: 100%; }
+  #vit-ar { background: #4fc3f7; width: 100%; }
+  .vit b { width: 28px; text-align: right; }
+  #hud-vehicle { position: absolute; right: 290px; bottom: 24px; text-align: right; }
+  #veh-speed { font: 900 44px system-ui, sans-serif; line-height: 1; }
+  #veh-unit { font-size: 12px; opacity: 0.8; }
+  #veh-name { font-size: 14px; }
+  #hud-subtitle { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); max-width: 640px; text-align: center; font-size: 18px; background: rgba(0,0,0,0.55); padding: 8px 16px; border-radius: 10px; }
+  #hud-prompt { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); font-size: 16px; background: var(--panel); padding: 6px 14px; border-radius: 8px; }
+  #hud-prompt:empty { display: none; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+  #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #fff; }
+  #crosshair::before { left: 8px; top: 0; width: 2px; height: 18px; }
+  #crosshair::after { left: 0; top: 8px; width: 18px; height: 2px; }
+
+  /* ---------- Screens ---------- */
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: linear-gradient(rgba(24,12,6,0.55), rgba(24,12,6,0.8)); text-align: center; padding: 20px; }
+  .logo-main { font: 900 italic 72px system-ui, sans-serif; letter-spacing: 0.04em; color: var(--sand); text-shadow: 0 4px 0 rgba(0,0,0,0.4); }
+  .logo-sub { font: 900 20px system-ui, sans-serif; letter-spacing: 0.5em; color: var(--gold); }
+  .menu-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .menu-list button, .screen button { pointer-events: auto; font: 700 17px system-ui, sans-serif; color: var(--sand); background: var(--panel-solid); border: 2px solid var(--gold); border-radius: 10px; padding: 10px 26px; cursor: pointer; }
+  .menu-list button:hover, .screen button:hover { background: var(--coral); color: #fff; }
+  .menu-list button:disabled { opacity: 0.4; cursor: default; }
+  .menu-list button:disabled:hover { background: var(--panel-solid); color: var(--sand); }
+  #title-slots, #pause-slots { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  #title-slots button, #pause-slots button { font-size: 13px; padding: 8px 14px; border-color: var(--teal); }
+  .screen label { font-size: 14px; display: flex; gap: 8px; align-items: center; }
+  #title-foot, #pause-foot { font-size: 13px; opacity: 0.75; max-width: 560px; }
+  #end-title { font: 900 italic 64px system-ui, sans-serif; color: var(--coral); }
+  #end-text { font-size: 18px; max-width: 520px; }
 </style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
-<p id="status" role="status" aria-live="polite"></p>
+<div id="game-root">
+  <canvas id="game" aria-label="Sunset Bay: an original open-world crime game"></canvas>
+  <p id="status" role="status" aria-live="polite"></p>
+  <div id="hud" hidden>
+    <div id="hud-left">
+      <div id="hud-objective">
+        <div id="obj-label">Mission</div>
+        <div id="obj-stage"></div>
+        <div id="obj-text"></div>
+        <div id="obj-hint"></div>
+      </div>
+    </div>
+    <div id="hud-status">
+      <div id="hud-clock"></div>
+      <div id="hud-money"></div>
+      <div id="hud-wanted"></div>
+      <div id="hud-rep"></div>
+    </div>
+    <div id="hud-ammo"></div>
+    <div id="hud-radar">
+      <div id="hud-location"><span id="loc-district"></span></div>
+      <canvas id="minimap" width="250" height="250"></canvas>
+      <div id="hud-vitals">
+        <div class="vit"><span>HEALTH</span><div><i id="vit-hp"></i></div><b id="vit-hp-n"></b></div>
+        <div class="vit"><span>ARMOUR</span><div><i id="vit-ar"></i></div><b id="vit-ar-n"></b></div>
+      </div>
+    </div>
+    <div id="hud-vehicle">
+      <div id="veh-speed">0</div>
+      <div id="veh-unit">KM/H</div>
+      <div id="veh-name"></div>
+    </div>
+    <div id="hud-subtitle" hidden></div>
+    <div id="hud-prompt"></div>
+    <div id="crosshair"></div>
+  </div>
+  <div id="screen-title" class="screen">
+    <div class="logo-main">SUNSET BAY</div>
+    <div class="logo-sub">AN ORIGINAL OPEN-WORLD CRIME STORY</div>
+    <div class="menu-list">
+      <button id="btn-continue">Continue</button>
+      <button id="btn-new">New Game</button>
+    </div>
+    <div id="title-slots">
+      <button id="slot-0">Slot 1 — empty</button>
+      <button id="slot-1">Slot 2 — empty</button>
+      <button id="slot-2">Slot 3 — empty</button>
+    </div>
+    <label>Volume <input id="opt-volume" type="range" min="0" max="1" step="0.05" value="0.7"></label>
+    <label>Quality
+      <select id="opt-quality">
+        <option value="high" selected>High</option>
+        <option value="low">Low</option>
+      </select>
+    </label>
+    <div id="title-foot">WASD move &amp; drive · E enter a car · Click shoot · F punch · H horn · R radio · P pause. An original city, story and cast — nothing borrowed from any commercial game.</div>
+  </div>
+  <div id="screen-pause" class="screen" hidden>
+    <div class="logo-main" style="font-size:44px">PAUSED</div>
+    <div class="menu-list">
+      <button id="btn-resume">Resume</button>
+      <button id="btn-quit">Quit to Title</button>
+    </div>
+    <div id="pause-slots">
+      <button id="save-0">Save Slot 1</button>
+      <button id="save-1">Save Slot 2</button>
+      <button id="save-2">Save Slot 3</button>
+    </div>
+    <label>Volume <input id="opt-volume-2" type="range" min="0" max="1" step="0.05" value="0.7"></label>
+    <div id="pause-foot">ESC resume · click the map in play to steer the camera by dragging</div>
+  </div>
+  <div id="screen-end" class="screen" hidden>
+    <div id="end-title">BUSTED</div>
+    <div id="end-text"></div>
+    <div class="menu-list"><button id="btn-retry">Try Again</button></div>
+  </div>
+</div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
